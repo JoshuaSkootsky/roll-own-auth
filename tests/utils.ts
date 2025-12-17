@@ -52,8 +52,8 @@ export const userExists = (username: string): boolean => {
 
 export const createTestUser = async (username: string, password: string): Promise<void> => {
   const db = getTestDb()
-  const { TEST_PEPPER } = require('./setup')
-  const hashedPassword = await hash(TEST_PEPPER + password, SALT)
+  const { TEST_PEPPERS } = require('./setup')
+  const hashedPassword = await hash(TEST_PEPPERS[0] + password, SALT)
   db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, hashedPassword)
   db.close()
 }

@@ -15,7 +15,12 @@ export const TEST_BASE_URL = `http://localhost:${TEST_PORT}`
 
 // Test environment variables for JWT
 export const TEST_JWT_SECRET = 'test-jwt-secret-key-for-testing-only'
-export const TEST_PEPPER = 'test-pepper-string-for-testing-only'
+export const TEST_PEPPERS = ['test-pepper-string-for-testing-only']
+
+// IMPORTANT: Set environment variables at module load time
+// This ensures they're available when test-server-helpers.ts is imported
+process.env.PEPPERS = TEST_PEPPERS.join(',')
+process.env.JWT_SECRET = TEST_JWT_SECRET
 
 // Export function for other test files to use
 export const getTestPortConfig = () => ({
@@ -31,9 +36,7 @@ let testServer: any = null
 beforeAll(async () => {
   console.log('🧪 Setting up test environment...')
   
-  // Set test environment variables
-  process.env.PEPPER = TEST_PEPPER
-  process.env.JWT_SECRET = TEST_JWT_SECRET
+  // Note: Environment variables are now set at module load time (above)
   
   // Remove existing test database if it exists
   try {
@@ -57,8 +60,9 @@ beforeAll(async () => {
   console.log('🚀 Starting test server on port', TEST_PORT)
   
   // Import server functionality and start test server
-  const { startTestServer } = await import('./test-server-helpers')
-  testServer = await startTestServer(Number(TEST_PORT), TEST_DB_PATH)
+  const { createTestServer } = await import('./test-helpers')
+  const testServerInstance = createTestServer(Number(TEST_PORT), TEST_DB_PATH)
+  testServer = testServerInstance.server
   
   // Wait for server to be ready
   await new Promise(resolve => setTimeout(resolve, 100))
