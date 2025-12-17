@@ -48,6 +48,9 @@ jobs:
     - name: Run tests with coverage
       run: |
         bun run test:ci
+      env:
+        PEPPERS: test-pepper-string-for-testing-only
+        JWT_SECRET: test-jwt-secret-key-for-testing-only
 
     - name: Upload test results
       uses: actions/upload-artifact@v4

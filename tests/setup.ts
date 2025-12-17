@@ -17,6 +17,11 @@ export const TEST_BASE_URL = `http://localhost:${TEST_PORT}`
 export const TEST_JWT_SECRET = 'test-jwt-secret-key-for-testing-only'
 export const TEST_PEPPERS = ['test-pepper-string-for-testing-only']
 
+// IMPORTANT: Set environment variables at module load time
+// This ensures they're available when test-server-helpers.ts is imported
+process.env.PEPPERS = TEST_PEPPERS.join(',')
+process.env.JWT_SECRET = TEST_JWT_SECRET
+
 // Export function for other test files to use
 export const getTestPortConfig = () => ({
   port: TEST_PORT,
@@ -31,9 +36,7 @@ let testServer: any = null
 beforeAll(async () => {
   console.log('🧪 Setting up test environment...')
   
-  // Set test environment variables
-  process.env.PEPPERS = TEST_PEPPERS.join(',')
-  process.env.JWT_SECRET = TEST_JWT_SECRET
+  // Note: Environment variables are now set at module load time (above)
   
   // Remove existing test database if it exists
   try {
