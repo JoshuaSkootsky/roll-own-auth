@@ -3,6 +3,18 @@ import { Database } from 'bun:sqlite'
 import { hash } from 'bcrypt'
 import { TEST_DB_PATH, TEST_BASE_URL } from './setup'
 
+// API response types
+export interface ApiResponse {
+  success: boolean
+  message: string
+}
+
+export interface TestApiResponse {
+  status: number
+  data: ApiResponse
+  response: Response
+}
+
 const SALT = 10
 
 // Test database utilities
@@ -43,7 +55,7 @@ export const getUserPasswordHash = (username: string): string | undefined => {
 }
 
 // HTTP request utilities
-export const makeSignupRequest = async (username: string, password: string) => {
+export const makeSignupRequest = async (username: string, password: string): Promise<TestApiResponse> => {
   const response = await fetch(`${TEST_BASE_URL}/signup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -51,12 +63,12 @@ export const makeSignupRequest = async (username: string, password: string) => {
   })
   return {
     status: response.status,
-    data: await response.json(),
+    data: await response.json() as ApiResponse,
     response
   }
 }
 
-export const makeLoginRequest = async (username: string, password: string) => {
+export const makeLoginRequest = async (username: string, password: string): Promise<TestApiResponse> => {
   const response = await fetch(`${TEST_BASE_URL}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -64,7 +76,7 @@ export const makeLoginRequest = async (username: string, password: string) => {
   })
   return {
     status: response.status,
-    data: await response.json(),
+    data: await response.json() as ApiResponse,
     response
   }
 }
@@ -90,7 +102,7 @@ export const resetTestDatabase = () => {
 }
 
 // Test assertion helpers
-export const expectSuccessResponse = (result: any, expectedMessage?: string) => {
+export const expectSuccessResponse = (result: TestApiResponse, expectedMessage?: string) => {
   expect(result.status).toBe(201) // or 200 for login
   expect(result.data.success).toBe(true)
   if (expectedMessage) {
@@ -98,7 +110,7 @@ export const expectSuccessResponse = (result: any, expectedMessage?: string) => 
   }
 }
 
-export const expectErrorResponse = (result: any, expectedStatus: number, expectedMessage?: string) => {
+export const expectErrorResponse = (result: TestApiResponse, expectedStatus: number, expectedMessage?: string) => {
   expect(result.status).toBe(expectedStatus)
   expect(result.data.success).toBe(false)
   if (expectedMessage) {
