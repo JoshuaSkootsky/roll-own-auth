@@ -4,6 +4,9 @@ Roll your own auth
 
 (1) Use bcrypt library hash and compare passwords
 (2) Use Zod for run time validation
+(3) Tests demonstrate how to use it and test it
+(4) Issue sessions 
+(5) Do app based salt and pepper for the bcrypt hashing
 
 
 v1 is minimal
