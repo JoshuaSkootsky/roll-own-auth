@@ -60,8 +60,9 @@ beforeAll(async () => {
   console.log('🚀 Starting test server on port', TEST_PORT)
   
   // Import server functionality and start test server
-  const { startTestServer } = await import('./test-server-helpers')
-  testServer = await startTestServer(Number(TEST_PORT), TEST_DB_PATH)
+  const { createTestServer } = await import('./test-helpers')
+  const testServerInstance = createTestServer(Number(TEST_PORT), TEST_DB_PATH)
+  testServer = testServerInstance.server
   
   // Wait for server to be ready
   await new Promise(resolve => setTimeout(resolve, 100))

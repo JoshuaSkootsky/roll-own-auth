@@ -1,14 +1,14 @@
 import { describe, test, expect, beforeEach } from 'bun:test'
-import { startTestServer } from './test-server-helpers'
+import { createTestAuthDirect } from './test-helpers'
 import { cleanUsersTable, createTestUser, userExists, getUserPasswordHash, countUsers } from './utils'
-import { TEST_PORT, TEST_DB_PATH } from './setup'
+import { TEST_DB_PATH } from './setup'
 
 describe('Authentication Functions', () => {
-  let server: any
+  let authService: any
 
   beforeEach(async () => {
     cleanUsersTable()
-    server = await startTestServer(0, TEST_DB_PATH) // port 0 = any available port for unit tests
+    authService = createTestAuthDirect(TEST_DB_PATH)
   })
 
   describe('signUp function', () => {
@@ -16,7 +16,7 @@ describe('Authentication Functions', () => {
       const username = 'testuser123'
       const password = 'testpass123'
       
-      const result = await server.signUp(username, password)
+      const result = await authService.signUp(username, password)
       
       expect(result.success).toBe(true)
       expect(result.message).toBe('User created.')
@@ -28,7 +28,7 @@ describe('Authentication Functions', () => {
       const username = 'testuser456'
       const password = 'testpass456'
       
-      await server.signUp(username, password)
+      await authService.signUp(username, password)
       const hashedPassword = getUserPasswordHash(username)
       
       expect(hashedPassword).toBeDefined()
@@ -42,11 +42,11 @@ describe('Authentication Functions', () => {
       const password2 = 'pass456'
       
       // First user should succeed
-      const result1 = await server.signUp(username, password1)
+      const result1 = await authService.signUp(username, password1)
       expect(result1.success).toBe(true)
       
       // Second user with same username should fail
-      const result2 = await server.signUp(username, password2)
+      const result2 = await authService.signUp(username, password2)
       expect(result2.success).toBe(false)
       expect(result2.message).toBe('Username already exists.')
       expect(countUsers()).toBe(1) // Only one user should exist
@@ -57,7 +57,7 @@ describe('Authentication Functions', () => {
       const veryLongUsername = 'a'.repeat(1000)
       const password = 'validpassword123'
       
-      const result = await server.signUp(veryLongUsername, password)
+      const result = await authService.signUp(veryLongUsername, password)
       
       // Should handle error gracefully (either success or controlled failure)
       expect(typeof result.success).toBe('boolean')
@@ -72,7 +72,7 @@ describe('Authentication Functions', () => {
     })
 
 test('should authenticate with correct credentials', async () => {
-      const result = await server.login('loginuser', 'loginpass123')
+      const result = await authService.login('loginuser', 'loginpass123')
       
       expect(result.success).toBe(true)
       expect(result.message).toBe('Login successful.')
@@ -81,7 +81,7 @@ test('should authenticate with correct credentials', async () => {
     })
 
     test('should handle non-existent user', async () => {
-      const result = await server.login('nonexistent', 'anypassword')
+      const result = await authService.login('nonexistent', 'anypassword')
       
       expect(result.success).toBe(false)
       expect(result.message).toBe('User not found.')
@@ -90,16 +90,16 @@ test('should authenticate with correct credentials', async () => {
 
     test('should properly compare bcrypt hashes', async () => {
       // Create user with known password
-      await server.signUp('hashtest', 'knownpassword123')
+      await authService.signUp('hashtest', 'knownpassword123')
       
       // Should login successfully
-      const result = await server.login('hashtest', 'knownpassword123')
+      const result = await authService.login('hashtest', 'knownpassword123')
       expect(result.success).toBe(true)
       expect(result.token).toBeDefined()
       expect(typeof result.token).toBe('string')
       
       // Should fail with wrong password
-      const result2 = await server.login('hashtest', 'wrongpassword')
+      const result2 = await authService.login('hashtest', 'wrongpassword')
       expect(result2.success).toBe(false)
       expect(result2.token).toBeUndefined()
     })
@@ -111,7 +111,7 @@ test('should authenticate with correct credentials', async () => {
     })
 
     test('should return user data for existing user', async () => {
-      const user = server.findUser('findtest')
+      const user = authService.findUser('findtest')
       
       expect(user).toBeDefined()
       expect(user!.username).toBe('findtest')
@@ -120,13 +120,13 @@ test('should authenticate with correct credentials', async () => {
     })
 
     test('should return undefined for non-existent user', async () => {
-      const user = server.findUser('nonexistent')
+      const user = authService.findUser('nonexistent')
       
       expect(user).toBeUndefined()
     })
 
     test('should not include password in plain text', async () => {
-      const user = server.findUser('findtest')
+      const user = authService.findUser('findtest')
       
       expect(user).toBeDefined()
       expect(user!.password_hash).not.toBe('findpass123') // Should be hashed
@@ -137,20 +137,20 @@ test('should authenticate with correct credentials', async () => {
     test('should maintain user count correctly', async () => {
       expect(countUsers()).toBe(0)
       
-      await server.signUp('user1', 'pass1')
+      await authService.signUp('user1', 'pass1')
       expect(countUsers()).toBe(1)
       
-      await server.signUp('user2', 'pass2')
+      await authService.signUp('user2', 'pass2')
       expect(countUsers()).toBe(2)
       
       // Duplicate user shouldn't increase count
-      await server.signUp('user1', 'pass3')
+      await authService.signUp('user1', 'pass3')
       expect(countUsers()).toBe(2)
     })
 
     test('should handle concurrent user creation', async () => {
       const promises = Array.from({ length: 5 }, (_, i) => 
-        server.signUp(`concurrent${i}`, `pass${i}`)
+        authService.signUp(`concurrent${i}`, `pass${i}`)
       )
       
       const results = await Promise.all(promises)
@@ -164,8 +164,8 @@ test('should authenticate with correct credentials', async () => {
     test('should generate different hashes for same password', async () => {
       const password = 'samepassword'
       
-      await server.signUp('user1', password)
-      await server.signUp('user2', password)
+      await authService.signUp('user1', password)
+      await authService.signUp('user2', password)
       
       const hash1 = getUserPasswordHash('user1')
       const hash2 = getUserPasswordHash('user2')
@@ -178,7 +178,7 @@ test('should authenticate with correct credentials', async () => {
     test('should handle complex passwords', async () => {
       const complexPassword = 'ComplexP@ssw0rd!#$%&*()_+-='
       
-      const result = await server.signUp('complexuser', complexPassword)
+      const result = await authService.signUp('complexuser', complexPassword)
       
       expect(result.success).toBe(true)
       expect(userExists('complexuser')).toBe(true)
