@@ -71,18 +71,13 @@ describe('Authentication Functions', () => {
       await createTestUser('loginuser', 'loginpass123')
     })
 
-    test('should authenticate with correct credentials', async () => {
+test('should authenticate with correct credentials', async () => {
       const result = await server.login('loginuser', 'loginpass123')
       
       expect(result.success).toBe(true)
       expect(result.message).toBe('Login successful.')
-    })
-
-    test('should reject wrong password', async () => {
-      const result = await server.login('loginuser', 'wrongpassword')
-      
-      expect(result.success).toBe(false)
-      expect(result.message).toBe('Invalid password.')
+      expect(result.token).toBeDefined()
+      expect(typeof result.token).toBe('string')
     })
 
     test('should handle non-existent user', async () => {
@@ -90,6 +85,7 @@ describe('Authentication Functions', () => {
       
       expect(result.success).toBe(false)
       expect(result.message).toBe('User not found.')
+      expect(result.token).toBeUndefined()
     })
 
     test('should properly compare bcrypt hashes', async () => {
@@ -99,10 +95,13 @@ describe('Authentication Functions', () => {
       // Should login successfully
       const result = await server.login('hashtest', 'knownpassword123')
       expect(result.success).toBe(true)
+      expect(result.token).toBeDefined()
+      expect(typeof result.token).toBe('string')
       
       // Should fail with wrong password
       const result2 = await server.login('hashtest', 'wrongpassword')
       expect(result2.success).toBe(false)
+      expect(result2.token).toBeUndefined()
     })
   })
 

@@ -7,8 +7,13 @@ import { AuthBody } from '../parse'
 const SALT = 10
 
 // Test environment variables - should be set in setup.ts
-const PEPPER = process.env.PEPPER || 'test-pepper-string-for-testing'
+const PEPPERS = (process.env.PEPPERS ?? '').split(',').filter(Boolean)
 const JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing'
+
+if (PEPPERS.length === 0) {
+  console.error('❌ No PEPPERS defined in test environment')
+  process.exit(1)
+}
 
 // UserType is a user in the database (as defined in schema.sql)
 type UserType = {
@@ -30,15 +35,25 @@ export async function startTestServer(port: number, dbPath: string) {
 
   // Test-specific hashPassword function
   const hashPassword = async (password: string): Promise<string> => {
-    return hash(PEPPER + password, SALT)
+    return hash(PEPPERS[0] + password, SALT)
   }
 
   // Test-specific verifyPassword function
   const verifyPassword = async (
     password: string,
     hash: string
-  ): Promise<boolean> => {
-    return compare(PEPPER + password, hash)
+  ): Promise<{ isValid: boolean; usedPepper: string | null }> => {
+    if (!hash) {
+      return { isValid: false, usedPepper: null }
+    }
+
+    for (const pepper of PEPPERS) {
+      const isValid = await compare(pepper + password, hash)
+      if (isValid) {
+        return { isValid: true, usedPepper: pepper }
+      }
+    }
+    return { isValid: false, usedPepper: null }
   }
 
   // Test-specific signUp function
@@ -63,9 +78,16 @@ export async function startTestServer(port: number, dbPath: string) {
       return { success: false, message: 'User not found.' }
     }
 
-    const isValid = await verifyPassword(password, user.password_hash)
+    // Try all peppers
+    const { isValid, usedPepper } = await verifyPassword(password, user.password_hash)
     if (!isValid) {
       return { success: false, message: 'Invalid password.' }
+    }
+
+    // check the pepper, upgrade to PEPPERS[0] (rotate out old peppers on log in)
+    if (usedPepper !== PEPPERS[0]) {
+      const newPasswordHash = await hashPassword(password)
+      db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newPasswordHash, user.id)
     }
 
     const token = sign({ username: user.username, id: user.id }, JWT_SECRET, {
