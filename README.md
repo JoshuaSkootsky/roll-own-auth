@@ -2,35 +2,30 @@
 
 Roll your own auth
 
-(1) Use bcrypt library hash and compare passwords
-(2) Use Zod for run time validation
-(3) Tests demonstrate how to use it and test it
-(4) Issue sessions 
-(5) Do app based salt and pepper for the bcrypt hashing
+1. Use bcrypt library hash and compare passwords
+2. Use Zod for run time validation of requests
+3. Tests demonstrate how to use it and test it
+4. Issue JWT tokens
+5. Do app based salt and pepper for the bcrypt hashing, allow for multiple peppers and rotating peppers.
+
+# Server Start
+```sh
+PORT=3000 PEPPERS=current-pepper,old-pepper,before-that-one bun run server.ts
+```
 
 
-v1 is minimal
-v2 has app level salt and pepper, and sessions/secure cookies.
+# Installation instructions
 
-This is all simple/example minimal.
-
-## Getting Started
-
-To install dependencies:
+To install
 
 ```bash
 bun install
 ```
 
-To run:
-
-```bash
-bun run index.ts
-```
 
 This project was created using `bun init` in bun v1.2.19. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
 
-### Actually getting started
+### Installing Bun
 
 Install bun!
 
@@ -39,10 +34,10 @@ Install bun!
 
 ### SQL Lite
 
-You can just write a schema for SQL Lite! It's great. See `schema.sql`
+You can just write a schema for SQL Lite! It's great. See `schema.sql`. A file called `db.sqlite` will be created in the root directory. We use SQL Lite as included in Bun.
 
-### Server
+# Dependency Injection
 
-`server.ts` is a simple server with Bun.
+This project evolved to attach an auth service to the server. The auth service is exported for testing, and injected into the server in production.
 
 
