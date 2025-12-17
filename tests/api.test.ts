@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'bun:test'
-import { makeSignupRequest, makeLoginRequest, cleanUsersTable, generateValidUserData, expectSuccessResponse, expectErrorResponse } from './utils'
+import { makeSignupRequest, makeLoginRequest, cleanUsersTable, generateValidUserData, expectSuccessResponse, expectErrorResponse, createTestUser } from './utils'
 import { TEST_BASE_URL } from './setup'
 
 describe('HTTP API Integration Tests', () => {
@@ -82,26 +82,61 @@ describe('HTTP API Integration Tests', () => {
   })
 
   describe('POST /login', () => {
-    beforeEach(async () => {
-      // Create a test user for login tests
-      await makeSignupRequest('loginuser', 'loginpass123')
+    test('should login successfully with valid credentials and return JWT', async () => {
+      const userData = generateValidUserData()
+      
+      // First signup
+      await makeSignupRequest(userData.username, userData.password)
+      
+      // Then login
+      const result = await makeLoginRequest(userData.username, userData.password)
+      
+      expect(result.status).toBe(200)
+      expect(result.data.success).toBe(true)
+      expect(result.data.message).toBe('Login successful.')
+      expect(result.data.token).toBeDefined()
+      expect(typeof result.data.token).toBe('string')
+    })
+
+    test('should return success message and JWT on successful login', async () => {
+      const userData = generateValidUserData()
+      
+      // First signup
+      await makeSignupRequest(userData.username, userData.password)
+      
+      // Then login
+      const result = await makeLoginRequest(userData.username, userData.password)
+      
+      expect(result.data.message).toBe('Login successful.')
+      expect(result.data.token).toBeDefined()
     })
 
     test('should authenticate and return 200', async () => {
+      // First create a user to login
+      await createTestUser('loginuser', 'loginpass123')
+      
       const result = await makeLoginRequest('loginuser', 'loginpass123')
       
       expect(result.status).toBe(200)
       expect(result.data.success).toBe(true)
       expect(result.data.message).toBe('Login successful.')
+      expect(result.data.token).toBeDefined()
     })
 
-    test('should return success message', async () => {
+    test('should return success message and JWT', async () => {
+      // First create a user to login
+      await createTestUser('loginuser', 'loginpass123')
+      
       const result = await makeLoginRequest('loginuser', 'loginpass123')
       
       expect(result.data.message).toBe('Login successful.')
+      expect(result.data.token).toBeDefined()
     })
 
     test('should reject wrong password with 400', async () => {
+      // First create a user to test wrong password
+      await createTestUser('loginuser', 'correctpassword')
+      
       const result = await makeLoginRequest('loginuser', 'wrongpassword')
       
       expectErrorResponse(result, 400, 'Invalid password.')
@@ -158,7 +193,7 @@ describe('HTTP API Integration Tests', () => {
       })
       
       expect(response.status).toBe(404)
-      expect(await response.text()).toBe('Use /signup or /login')
+      expect(await response.text()).toBe('Use /signup, /login, or /profile')
     })
 
     test('should handle GET requests to POST endpoints', async () => {

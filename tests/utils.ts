@@ -9,9 +9,19 @@ export interface ApiResponse {
   message: string
 }
 
+export interface JwtApiResponse extends ApiResponse {
+  token?: string
+}
+
 export interface TestApiResponse {
   status: number
   data: ApiResponse
+  response: Response
+}
+
+export interface TestJwtApiResponse {
+  status: number
+  data: JwtApiResponse
   response: Response
 }
 
@@ -42,7 +52,8 @@ export const userExists = (username: string): boolean => {
 
 export const createTestUser = async (username: string, password: string): Promise<void> => {
   const db = getTestDb()
-  const hashedPassword = await hash(password, SALT)
+  const { TEST_PEPPER } = require('./setup')
+  const hashedPassword = await hash(TEST_PEPPER + password, SALT)
   db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, hashedPassword)
   db.close()
 }
@@ -68,7 +79,7 @@ export const makeSignupRequest = async (username: string, password: string): Pro
   }
 }
 
-export const makeLoginRequest = async (username: string, password: string): Promise<TestApiResponse> => {
+export const makeLoginRequest = async (username: string, password: string): Promise<TestJwtApiResponse> => {
   const response = await fetch(`${TEST_BASE_URL}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -76,7 +87,7 @@ export const makeLoginRequest = async (username: string, password: string): Prom
   })
   return {
     status: response.status,
-    data: await response.json() as ApiResponse,
+    data: await response.json() as JwtApiResponse,
     response
   }
 }
@@ -102,6 +113,47 @@ export const resetTestDatabase = () => {
 }
 
 // Test assertion helpers
+// JWT-specific utilities
+export const makeAuthenticatedRequest = async (
+  endpoint: string, 
+  token: string, 
+  options: RequestInit = {}
+): Promise<TestApiResponse> => {
+  const response = await fetch(`${TEST_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...options.headers
+    }
+  })
+  return {
+    status: response.status,
+    data: await response.json() as ApiResponse,
+    response
+  }
+}
+
+export const decodeTestToken = (token: string) => {
+  // Note: This is for testing only - in production you'd use the JWT_SECRET
+  const { verify } = require('jsonwebtoken')
+  const { TEST_JWT_SECRET } = require('./setup')
+  return verify(token, TEST_JWT_SECRET || process.env.JWT_SECRET)
+}
+
+export const expectJwtResponse = (response: TestJwtApiResponse, shouldHaveToken: boolean, expectedMessage?: string) => {
+  expect(response.data.success).toBe(true)
+  if (expectedMessage) {
+    expect(response.data.message).toBe(expectedMessage)
+  }
+  if (shouldHaveToken) {
+    expect(response.data.token).toBeDefined()
+    expect(typeof response.data.token).toBe('string')
+  } else {
+    expect(response.data.token).toBeUndefined()
+  }
+}
+
 export const expectSuccessResponse = (result: TestApiResponse, expectedMessage?: string) => {
   expect(result.status).toBe(201) // or 200 for login
   expect(result.data.success).toBe(true)

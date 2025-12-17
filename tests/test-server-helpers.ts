@@ -1,9 +1,14 @@
 import { hash, compare } from 'bcrypt'
+import { sign, verify } from 'jsonwebtoken'
 import { Database } from 'bun:sqlite'
 import { AuthBody } from '../parse'
 
 // Test configuration
 const SALT = 10
+
+// Test environment variables - should be set in setup.ts
+const PEPPER = process.env.PEPPER || 'test-pepper-string-for-testing'
+const JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing'
 
 // UserType is a user in the database (as defined in schema.sql)
 type UserType = {
@@ -23,9 +28,22 @@ export async function startTestServer(port: number, dbPath: string) {
     return result ? result as UserType : undefined
   }
 
+  // Test-specific hashPassword function
+  const hashPassword = async (password: string): Promise<string> => {
+    return hash(PEPPER + password, SALT)
+  }
+
+  // Test-specific verifyPassword function
+  const verifyPassword = async (
+    password: string,
+    hash: string
+  ): Promise<boolean> => {
+    return compare(PEPPER + password, hash)
+  }
+
   // Test-specific signUp function
   const signUp = async (username: string, password: string) => {
-    const hashedPassword = await hash(password, SALT)
+    const hashedPassword = await hashPassword(password)
     try {
       db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(
         username,
@@ -45,13 +63,41 @@ export async function startTestServer(port: number, dbPath: string) {
       return { success: false, message: 'User not found.' }
     }
 
-    const hash = user.password_hash
-    const isValid = await compare(password, hash)
+    const isValid = await verifyPassword(password, user.password_hash)
     if (!isValid) {
       return { success: false, message: 'Invalid password.' }
     }
 
-    return { success: true, message: 'Login successful.' }
+    const token = sign({ username: user.username, id: user.id }, JWT_SECRET, {
+      expiresIn: '7d',
+    })
+
+    return { success: true, message: 'Login successful.', token }
+  }
+
+  // Test-specific authenticate middleware
+  const authenticate = (req: Request): { valid: boolean; user?: any } => {
+    const auth = req.headers.get('Authorization')
+    if (!auth || !auth.startsWith('Bearer ')) {
+      return { valid: false }
+    }
+
+    const tokenParts = auth.split(' ')
+    if (tokenParts.length !== 2) {
+      return { valid: false }
+    }
+    
+    const token = tokenParts[1]
+    if (!token) {
+      return { valid: false }
+    }
+    
+    try {
+      const decoded = verify(token, JWT_SECRET)
+      return { valid: true, user: decoded }
+    } catch (err) {
+      return { valid: false }
+    }
   }
 
   // Create test server
@@ -107,8 +153,23 @@ export async function startTestServer(port: number, dbPath: string) {
           })
         }
 
+        // 🔒 Protected route example
+        if (path === '/profile' && method === 'GET') {
+          const authResult = authenticate(req)
+          if (!authResult.valid) {
+            return new Response(
+              JSON.stringify({ success: false, message: 'Unauthorized' }),
+              { status: 401, headers: { 'Content-Type': 'application/json' } }
+            )
+          }
+          return new Response(
+            JSON.stringify({ success: true, message: `Hello, ${authResult.user.username}!` }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          )
+        }
+
         // catch all
-        return new Response('Use /signup or /login', { status: 404 })
+        return new Response('Use /signup, /login, or /profile', { status: 404 })
       } catch (error) {
         // Handle JSON parsing errors and other request errors
         return new Response(JSON.stringify({

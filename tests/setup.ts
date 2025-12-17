@@ -13,6 +13,10 @@ export const TEST_PORT = getTestPort()
 export const TEST_DB_PATH = './test_db.sqlite'
 export const TEST_BASE_URL = `http://localhost:${TEST_PORT}`
 
+// Test environment variables for JWT
+export const TEST_JWT_SECRET = 'test-jwt-secret-key-for-testing-only'
+export const TEST_PEPPER = 'test-pepper-string-for-testing-only'
+
 // Export function for other test files to use
 export const getTestPortConfig = () => ({
   port: TEST_PORT,
@@ -26,6 +30,10 @@ let testServer: any = null
 // Setup test environment before all tests
 beforeAll(async () => {
   console.log('🧪 Setting up test environment...')
+  
+  // Set test environment variables
+  process.env.PEPPER = TEST_PEPPER
+  process.env.JWT_SECRET = TEST_JWT_SECRET
   
   // Remove existing test database if it exists
   try {
